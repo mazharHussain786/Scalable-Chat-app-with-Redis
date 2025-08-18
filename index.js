@@ -3,8 +3,15 @@ import { Server } from "socket.io";
 import cors from "cors";
 import Redis from "ioredis";
 import { configDotenv } from "dotenv";
+import { connectDb } from "./db/connect.js";
+import { createTopic, produceMessage } from "./kafka/producer.js";
+import { TOPIC } from "./kafka/consumer.js";
 
 const app = express();
+
+(async () => {
+  await createTopic(TOPIC);
+})();
 
 const env = process.env.NODE_ENV;
 
@@ -34,6 +41,10 @@ app.use(cors());
 app.use(express.json());
 
 const PORT = 3000;
+
+(async () => {
+  await connectDb();
+})();
 const server = app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
@@ -56,8 +67,9 @@ io.on("connection", (socket) => {
   Sub.on(
     "message",
     (Channel,
-    (channel, message) => {
+    async (channel, message) => {
       console.log(`Message: ${message} came from ${channel}`);
+      await produceMessage(`MESSAGE ${Date.now()}`, message, TOPIC);
       socket.emit("message", { id: socket.id, message });
     })
   );
